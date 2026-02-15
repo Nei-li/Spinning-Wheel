@@ -5,6 +5,8 @@
 
     <!-- Main Wheel Container -->
     <div class="wheel-container">
+      <div class="pointer"></div>
+
       <!-- SVG Wheel -->
       <svg
         class="wheel-svg"
@@ -18,9 +20,9 @@
           <!-- Slice Path -->
           <path
             :d="slice.path"
-            :fill="slice.item === lastResult ? '#9B59B6' : slice.color"
+            :fill="slice.color"
             stroke="white"
-            :stroke-width="slice.item === lastResult ? 6 : 2"
+            stroke-width="2"
           />
           <!-- Slice Label -->
           <text
@@ -28,6 +30,7 @@
             :y="slice.labelY"
             :transform="`rotate(${slice.label}deg ${200} ${200})`"
             class="slice-label"
+            :fill="slice.color === '#FFFFFF' ? '#000000' : 'white'"
             text-anchor="middle"
             dominant-baseline="middle"
           >
@@ -36,19 +39,21 @@
         </g>
 
         <!-- Center Circle with Spin Button -->
-        <g>
-          <circle cx="200" cy="200" r="45" fill="#FFD700" stroke="white" stroke-width="3" />
-          <circle cx="200" cy="200" r="35" fill="#FF6B9D" />
+        <g 
+          @click="spin" 
+          :style="{ cursor: isSpinning ? 'not-allowed' : 'pointer' }"
+        >
+          <circle cx="200" cy="200" r="45" fill="#FF1744" stroke="white" stroke-width="3" />
+          <circle cx="200" cy="200" r="35" fill="#FF1744" />
           <text
             x="200"
-            y="200"
+            y="205"
             class="spin-text"
             text-anchor="middle"
             dominant-baseline="middle"
-            @click="spin"
             :style="{ cursor: isSpinning ? 'not-allowed' : 'pointer', opacity: isSpinning ? 0.6 : 1 }"
           >
-            🎡
+            SPIN
           </text>
         </g>
       </svg>
@@ -62,18 +67,22 @@
     </div>
 
     <!-- Spin Button -->
-    <button
-      class="spin-button"
-      @click="spin"
-      :disabled="isSpinning"
-    >
-      <span v-if="!isSpinning">🎡 SPIN</span>
-      <span v-else>⏳ SPINNING...</span>
-    </button>
+    <!-- Removed spin button - click wheel to spin -->
+
+    <!-- Fixed Winner Indicator Circle -->
+    <div class="winner-indicator">
+      <transition name="indicator-pop">
+        <div v-if="lastResult" class="indicator-circle">
+          <div class="indicator-content">
+            <span class="indicator-label">{{ lastResult.label || lastResult }}</span>
+          </div>
+        </div>
+      </transition>
+    </div>
 
     <!-- Result Display -->
     <transition name="result-fade">
-      <div v-if="lastResult" class="result-display">
+      <div v-if="lastResult && !isSpinning" class="result-display">
         <h2 class="result-text">🎉 You Won!</h2>
       </div>
     </transition>
@@ -112,11 +121,11 @@ const emit = defineEmits(['onFinish'])
 // State
 const rotation = ref(0)
 const isSpinning = ref(false)
-const lastResult = ref(null)
 const showConfetti = ref(false)
 const confettiCanvas = ref(null)
 const animationFrameId = ref(null)
 const spinCount = ref(0)
+const lastResult = ref(null)
 
 // Constants
 const SLICE_COUNT = props.items.length
@@ -125,9 +134,7 @@ const MIN_ROTATIONS = 5
 
 // Color palette - vibrant and distinct
 const COLORS = [
-  '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
-  '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B88B', '#A9DFBF',
-  '#F48FB1', '#000000', '#F7DC6F', '#BB8FCE', '#000000'
+  '#FF1744', '#FFFFFF', '#FF1744', '#FFFFFF', '#FF1744'
 ]
 
 // Get color for slice
@@ -225,25 +232,29 @@ function spinTo(targetIndex) {
     duration = Math.max(props.duration - (spinCount.value * 200), 1500)
   }
 
+  const currentRotation = rotation.value % 360
   const sliceAngle = FULL_ROTATION / SLICE_COUNT
-  const randomRotations = MIN_ROTATIONS + Math.random() * 2
 
-  // Calculate the exact rotation needed
-  // Pointer is at top (0°), so we need the target slice to be at 0°
-  // Slice index 0 starts at -90°, so adjust accordingly
   const targetAngle = targetIndex * sliceAngle
-  const finalRotation = randomRotations * FULL_ROTATION + (FULL_ROTATION - targetAngle)
 
-  animateWheel(finalRotation, duration)
+  const extraRotation =
+    MIN_ROTATIONS * FULL_ROTATION +
+    (FULL_ROTATION - targetAngle) -
+    currentRotation
 
-  setTimeout(() => {
-    isSpinning.value = false
+  const finalRotation = rotation.value + extraRotation
+
+  spinCount.value++
+
+  animateWheel(finalRotation, duration, () => {
+    // Animation complete
     lastResult.value = props.items[targetIndex]
-    emit('onFinish', props.items[targetIndex])
     showConfetti.value = true
     triggerConfetti()
-    spinCount.value++ // Increment spin counter
-  }, duration)
+    isSpinning.value = false
+    emit('onFinish', lastResult.value)
+  })
+
 }
 
 // Main spin function - random selection
@@ -253,7 +264,7 @@ function spin() {
 }
 
 // Animate wheel rotation
-function animateWheel(targetRotation, duration) {
+function animateWheel(targetRotation, duration, onComplete) {
   const startRotation = rotation.value
   const startTime = Date.now()
 
@@ -262,16 +273,21 @@ function animateWheel(targetRotation, duration) {
     const progress = Math.min(elapsed / duration, 1)
 
     // Cubic bezier easing for smooth deceleration
-    const easeProgress = 1 - Math.pow(1 - progress, 3)
+    const easeProgress = 1 - Math.pow(1 - progress, 4)
 
     rotation.value = startRotation + (targetRotation - startRotation) * easeProgress
 
     if (progress < 1) {
       animationFrameId.value = requestAnimationFrame(animate)
+    }else {
+      rotation.value = rotation.value % 360
+      if (onComplete) {
+        onComplete()
+      }
     }
   }
 
-  animate()
+  animationFrameId.value = requestAnimationFrame(animate)
 }
 
 // Confetti animation with balloons, coins, and gems bursting out
@@ -507,6 +523,20 @@ defineExpose({
   width: 500px;
   height: 500px;
   margin-bottom: 50px;
+  border: 20px solid #2C2855;
+  border-radius: 50%;
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.3), 0 0 30px rgba(0, 0, 0, 0.2);
+}
+
+.wheel-container::before {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  top: 0;
+  left: 0;
+  background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.1), transparent);
 }
 
 .pointer {
@@ -518,7 +548,7 @@ defineExpose({
   height: 0;
   border-left: 23px solid transparent;
   border-right: 23px solid transparent;
-  border-top: 45px solid #FF6B9D;
+  border-top: 45px solid #FF1744;
   z-index: 20;
   filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.4));
 }
@@ -530,7 +560,7 @@ defineExpose({
   left: -23px;
   width: 45px;
   height: 45px;
-  background: radial-gradient(circle, rgba(255, 107, 157, 0.3), transparent);
+  background: radial-gradient(circle, rgba(255, 23, 68, 0.3), transparent);
   border-radius: 50%;
   filter: blur(10px);
 }
@@ -539,15 +569,27 @@ defineExpose({
 .wheel-svg {
   width: 100%;
   height: 100%;
-  filter: drop-shadow(0 0 50px rgba(255, 215, 0, 0.6)) drop-shadow(0 0 100px rgba(102, 126, 234, 0.3));
-  transition: transform 0.05s linear;
+  filter: drop-shadow(0 0 20px rgba(0, 0, 0, 0.3));
+}
+
+/* Wheel border with decorative dots */
+.wheel-svg::before {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: 20px solid #2C2855;
+  border-radius: 50%;
+  top: 0;
+  left: 0;
+  box-shadow: inset 0 0 0 10px #2C2855;
 }
 
 .slice-label {
   font-size: 16px;
   font-weight: 900;
-  fill: white;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  fill: rgb(14, 4, 4);
+  text-shadow: 2px 2px 4px rgba(228, 221, 221, 0.5);
   font-family: 'Segoe UI', sans-serif;
   pointer-events: none;
 }
@@ -574,48 +616,23 @@ defineExpose({
 
 /* Spin Text in Center */
 .spin-text {
-  font-size: 48px;
+  font-size: 20px;
+  font-weight: bold;
   cursor: pointer;
   transition: all 0.3s ease;
   filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.3));
+  letter-spacing: 1px;
 }
 
 .spin-text:hover {
-  font-size: 55px;
   filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
 }
 
 .spin-text:active {
-  font-size: 45px;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
 }
 
 /* Buttons */
-.spin-button {
-  padding: 12px 30px;
-  font-size: 16px;
-  font-weight: bold;
-  border: none;
-  border-radius: 30px;
-  background: linear-gradient(135deg, #FF6B6B 0%, #FF9F43 100%);
-  color: white;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  margin-bottom: 30px;
-}
-
-.spin-button:hover:not(:disabled) {
-  transform: scale(1.1);
-  box-shadow: 0 12px 40px rgba(255, 107, 107, 0.5);
-}
-
-.spin-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 .reset-button {
   padding: 12px 40px;
   font-size: 16px;
@@ -634,6 +651,70 @@ defineExpose({
   background: white;
   color: #667eea;
   transform: scale(1.05);
+}
+
+/* Winner Indicator Circle */
+.winner-indicator {
+  margin-top: 30px;
+  height: 100px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.indicator-circle {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #FFD700, #FFA500);
+  border: 4px solid rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 30px rgba(255, 215, 0, 0.8), inset 0 0 20px rgba(255, 255, 255, 0.3);
+  animation: indicator-pulse 0.6s cublic-bezier(0.34, 1.56,0.64, 1);
+}
+
+.indicator-content {
+  text-align: center;
+  width: 85%;
+  word-wrap: break-word;
+}
+
+.indicator-label {
+  font-size: 13px;
+  font-weight: bold;
+  color: #333;
+  text-shadow: 0 2px 4px rgba(255, 255, 255, 0.5);
+  display: block;
+  line-height: 1.3;
+}
+
+@keyframes indicator-pulse {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes indicator-bounce {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.indicator-circle {
+  animation: indicator-pulse 0.8s cubic-bezier(0.34, 1.56, 0.64, 1), indicator-bounce 1.5s ease-in-out 0.8s infinite;
 }
 
 /* Result Display */
@@ -698,6 +779,24 @@ defineExpose({
   animation: pop-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+.indicator-pop-enter-active {
+  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.indicator-pop-enter-from {
+  opacity: 0;
+  transform: scale(0);
+}
+
+.indicator-pop-leave-active {
+  transition: all 0.3s ease;
+}
+
+.indicator-pop-leave-to {
+  opacity: 0;
+  transform: scale(0.8);
+}
+
 @keyframes pop-in {
   0% {
     transform: scale(0.3) rotateZ(-30deg);
@@ -735,38 +834,7 @@ defineExpose({
   }
 }
 
-@keyframes shake-screen {
-  0%, 100% {
-    transform: translateX(0);
-  }
-  10% {
-    transform: translateX(-8px);
-  }
-  20% {
-    transform: translateX(8px);
-  }
-  30% {
-    transform: translateX(-8px);
-  }
-  40% {
-    transform: translateX(8px);
-  }
-  50% {
-    transform: translateX(-5px);
-  }
-  60% {
-    transform: translateX(5px);
-  }
-  70% {
-    transform: translateX(-3px);
-  }
-  80% {
-    transform: translateX(3px);
-  }
-  90% {
-    transform: translateX(-1px);
-  }
-}
+
 
 /* Responsive */
 @media (max-width: 1024px) {
@@ -803,14 +871,17 @@ defineExpose({
     margin-bottom: 20px;
   }
 
-  .spin-button {
-    padding: 12px 40px;
-    font-size: 16px;
-    margin-bottom: 20px;
-  }
-
   .result-text {
     font-size: 1.8em;
+  }
+
+  .indicator-circle {
+    width: 80px;
+    height: 80px;
+  }
+
+  .indicator-label {
+    font-size: 12px;
   }
 }
 
@@ -845,12 +916,6 @@ defineExpose({
     left: -23px;
   }
 
-  .spin-button {
-    padding: 10px 30px;
-    font-size: 14px;
-    margin-bottom: 15px;
-  }
-
   .result-text {
     font-size: 1.5em;
   }
@@ -862,6 +927,15 @@ defineExpose({
   .reset-button {
     padding: 8px 25px;
     font-size: 13px;
+  }
+
+  .indicator-circle {
+    width: 70px;
+    height: 70px;
+  }
+
+  .indicator-label {
+    font-size: 11px;
   }
 }
 
@@ -877,13 +951,17 @@ defineExpose({
     margin-bottom: 15px;
   }
 
-  .spin-button {
-    padding: 8px 20px;
-    font-size: 12px;
-  }
-
   .result-text {
     font-size: 1.3em;
+  }
+
+  .indicator-circle {
+    width: 65px;
+    height: 65px;
+  }
+
+  .indicator-label {
+    font-size: 10px;
   }
 }
 </style>
