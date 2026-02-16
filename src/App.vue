@@ -1,6 +1,11 @@
 <template>
   <div class="app">
+    <UserForm 
+      v-if="!showWheel"
+      @formSubmitted="handleFormSubmit"
+    />
     <SpinningWheel
+      v-if="showWheel"
       :items="wheelItems"
       :duration="4000"
       title="🎡 Spinning Wheel - Wheel of Fortune"
@@ -13,8 +18,13 @@
 <script setup>
 import { ref } from 'vue'
 import SpinningWheel from './components/SpinningWheel.vue'
+import UserForm from './components/UserForm.vue'
 
 const wheelRef = ref(null)
+const showWheel = ref(false) //no need to show wheel initially
+
+//store form data
+const userData = ref(null)
 
 // Define wheel items with probability weights and prices
 const wheelItems = ref([
@@ -25,9 +35,23 @@ const wheelItems = ref([
   { label: 'Lanyard 🧵', weight: 8.75, price: '$10' }
 ])
 
+
+//this is to handel form data
+function handleFormSubmit(data) {
+  userData.value = data
+  showWheel.value = true
+  console.log(showWheel.value)
+}
+
+
 // Handle spin completion
 function handleSpinFinish(item) {
-  console.log('Spin finished!', item)
+  console.log(userData.value) //this has all the data of user
+  console.log(item) // This has the data of reward
+
+  // add api call here
+  //can make the function async and use await +api calll here
+
 }
 
 // Optional: Programmatic control
