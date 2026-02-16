@@ -70,22 +70,20 @@
     <!-- Removed spin button - click wheel to spin -->
 
     <!-- Fixed Winner Indicator Circle -->
-    <div class="winner-indicator">
-      <transition name="indicator-pop">
-        <div v-if="lastResult" class="indicator-circle">
-          <div class="indicator-content">
-            <span class="indicator-label">{{ lastResult.label || lastResult }}</span>
-          </div>
-        </div>
-      </transition>
-    </div>
+   
 
     <!-- Result Display -->
-    <transition name="result-fade">
-      <div v-if="lastResult && !isSpinning" class="result-display">
-        <h2 class="result-text">🎉 You Won!</h2>
-      </div>
-    </transition>
+   
+
+     <transition name="indicator-pop">
+    <div v-if="lastResult && !isSpinning" class="indicator-circle">
+        <div class="indicator-content">
+       <h2 class="result-text">🎉 You Won!</h2>
+      <span class="indicator-label">{{ lastResult.label || lastResult }}</span>
+    </div>
+  </div>
+  </transition>
+
 
 
   </div>
@@ -221,42 +219,35 @@ function getRandomIndex() {
 function spinTo(targetIndex) {
   if (isSpinning.value) return
 
-  isSpinning.value = true
+  // 1. Immediately hide previous result and confetti
   lastResult.value = null
   showConfetti.value = false
+  isSpinning.value = true
 
-  // Calculate duration based on spin count
-  // First spin: 4000ms (slow), then gets faster
-  let duration = props.duration
-  if (spinCount.value > 0) {
-    // Decrease duration by 200ms for each spin, minimum 1500ms
-    duration = Math.max(props.duration - (spinCount.value * 200), 1500)
-  }
-
+  // 2. Calculate rotation
   const currentRotation = rotation.value % 360
   const sliceAngle = FULL_ROTATION / SLICE_COUNT
-
   const targetAngle = targetIndex * sliceAngle
-
   const extraRotation =
     MIN_ROTATIONS * FULL_ROTATION +
     (FULL_ROTATION - targetAngle) -
     currentRotation
-
   const finalRotation = rotation.value + extraRotation
 
   spinCount.value++
 
-  animateWheel(finalRotation, duration, () => {
-    // Animation complete
+  // 3. Animate the wheel
+  animateWheel(finalRotation, props.duration, () => {
+    // After spin ends, show result and confetti
     lastResult.value = props.items[targetIndex]
     showConfetti.value = true
     triggerConfetti()
     isSpinning.value = false
     emit('onFinish', lastResult.value)
   })
-
 }
+
+
 
 // Main spin function - random selection
 function spin() {
@@ -498,7 +489,7 @@ defineExpose({
 
 <style scoped>
 /* Container */
-.spinner-wheel-wrapper {
+.spinner-wheel-wrapper{
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -508,8 +499,10 @@ defineExpose({
 }
 
 .wheel-title {
+  position: absolute;
+  top: 10vh;
   font-size: 1.8em;
-  margin-bottom: 40px;
+  margin-top: 40px;
   text-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
   letter-spacing: 2px;
   text-align: center;
@@ -517,7 +510,7 @@ defineExpose({
 
 /* Wheel Container */
 .wheel-container {
-  position: relative;
+  position: absolute;
   width: 500px;
   height: 500px;
   margin-bottom: 50px;
@@ -648,10 +641,12 @@ defineExpose({
 }
 
 .indicator-circle {
-  width: 260%;
-  height: 120%;
+ position: absolute;
+ bottom: 10vh;
+  width: 25vw;
+  height: 10%;
   padding: 20px 25px;
-  border-radius: 25%;
+  border-radius: 20px 20px 20px 20px;
   background: linear-gradient(135deg, #FFD700, #FFA500);
   border: 4px solid rgba(255, 255, 255, 0.8);
   display: flex;
@@ -663,7 +658,7 @@ defineExpose({
 
 .indicator-content {
   text-align: center;
-  width: 85%;
+  /* width: 100vw; */
   word-wrap: break-word;
 }
 
