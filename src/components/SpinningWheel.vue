@@ -30,7 +30,7 @@
             :y="slice.labelY"
             :transform="`rotate(${slice.label}deg ${200} ${200})`"
             class="slice-label"
-            :fill="slice.color === '#FFFFFF' ? '#000000' : 'white'"
+            :fill="slices.textColor"
             text-anchor="middle"
             dominant-baseline="middle"
           >
@@ -181,6 +181,7 @@ const slices = computed(() => {
       item,
       path,
       color: getSliceColor(index),
+      text: index % 2 === 0 ? '#FFFFFF' : '#000000',
       labelX,
       labelY,
       label: labelRotation,
@@ -502,9 +503,6 @@ defineExpose({
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 40px 20px;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   color: white;
 }
@@ -523,20 +521,8 @@ defineExpose({
   width: 500px;
   height: 500px;
   margin-bottom: 50px;
-  border: 20px solid #2C2855;
   border-radius: 50%;
   box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.3), 0 0 30px rgba(0, 0, 0, 0.2);
-}
-
-.wheel-container::before {
-  content: '';
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  top: 0;
-  left: 0;
-  background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.1), transparent);
 }
 
 .pointer {
@@ -588,7 +574,6 @@ defineExpose({
 .slice-label {
   font-size: 16px;
   font-weight: 900;
-  fill: rgb(14, 4, 4);
   text-shadow: 2px 2px 4px rgba(228, 221, 221, 0.5);
   font-family: 'Segoe UI', sans-serif;
   pointer-events: none;
@@ -620,7 +605,7 @@ defineExpose({
   font-weight: bold;
   cursor: pointer;
   transition: all 0.3s ease;
-  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.3));
+  filter: drop-shadow(0 2px 5px rgba(150, 145, 145, 0.3));
   letter-spacing: 1px;
 }
 
@@ -663,9 +648,10 @@ defineExpose({
 }
 
 .indicator-circle {
-  width: 90px;
-  height: 90px;
-  border-radius: 50%;
+  width: 260%;
+  height: 120%;
+  padding: 20px 25px;
+  border-radius: 25%;
   background: linear-gradient(135deg, #FFD700, #FFA500);
   border: 4px solid rgba(255, 255, 255, 0.8);
   display: flex;
@@ -682,7 +668,7 @@ defineExpose({
 }
 
 .indicator-label {
-  font-size: 13px;
+  font-size: 19px;
   font-weight: bold;
   color: #333;
   text-shadow: 0 2px 4px rgba(255, 255, 255, 0.5);
@@ -857,7 +843,11 @@ defineExpose({
 @media (max-width: 768px) {
   .spinner-wheel-wrapper {
     padding: 20px;
-    min-height: auto;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
   }
 
   .wheel-title {
